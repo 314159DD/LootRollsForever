@@ -1,0 +1,42 @@
+# CurseForge listing for Loot Rolls Forever
+
+The text that is pasted into the editor is `curseforge-description.html`; this file is the readable copy.
+
+## Project fields
+
+- **Name:** Loot Rolls Forever
+- **Summary:** Shows who chose Need or Greed, what they rolled and who won, as floating text.
+- **Main category:** Bags & Inventory
+- **Game version:** WoW Forever 1.60.1 (Interface 16001)
+- **Licence:** MIT
+- **Logo:** `branding/logo-400.png`
+
+---
+
+## Description
+
+Top bar: Buy me a coffee, Source, Report a bug, Forever 1.60.
+
+When your group rolls for a blue or better item, you see every player's choice, the rolls and the winner as plain floating text. No window, no frame.
+
+Then the animated preview, `branding/preview.gif`, loaded from the repository.
+
+## Features
+
+- **Choices:** each party member's name lights up with the dice, coin or pass icon when they choose.
+- **Result:** the winner and the winning roll in gold, the other rolls small underneath.
+- **Floating text:** no background and no border. It fades in, stays a few seconds after the winner is known and fades out.
+- **Several items:** rolls on more than one item stack below each other.
+- **Raids:** with more than five players it shows a count per choice, and the rolls drop in as a list under the winner.
+- **Dismiss:** hover the item icon and click the checkmark to clear an item early.
+- **Tooltip:** hover the item to see its tooltip.
+- **Place and size:** a looping preview you can drag, with a size slider on right-click.
+- **Light:** one small file, no libraries, nothing running while nothing is being rolled.
+
+## How to use
+
+It shows up by itself when a roll starts. Type **/rolls test** to play an example. Type **/rolls move** to place it: drag the preview, right-click it for the size, then click Done.
+
+## Feedback
+
+Bugs and ideas are welcome in the comments.
