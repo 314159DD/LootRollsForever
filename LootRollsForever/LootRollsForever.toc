@@ -2,7 +2,7 @@
 ## Title: Loot Rolls Forever
 ## Notes: Shows who chose Need or Greed, what they rolled and who won, as floating text.
 ## Author: tekkon
-## Version: 0.1.0
+## Version: 0.1.1
 ## IconTexture: Interface\AddOns\LootRollsForever\LootRollsForever
 ## X-License: MIT
 ## SavedVariables: LootRollsForeverDB

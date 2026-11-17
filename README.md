@@ -12,7 +12,7 @@ When your group rolls for a blue or better item, you see every player's choice, 
 - **Several items:** rolls on more than one item stack below each other.
 - **Raids:** with more than five players it shows a count per choice, and the rolls drop in as a list under the winner.
 - **Dismiss:** hover the item icon and click the checkmark to clear an item early.
-- **Tooltip:** hover the item to see its tooltip.
+- **Hover:** the item shows its tooltip, the choices show who picked what, a raid result shows every roll.
 - **Place and size:** a looping preview you can drag, with a size slider on right-click.
 - **Light:** one small file, no libraries, nothing running while nothing is being rolled.
 
@@ -22,7 +22,7 @@ Copy the `LootRollsForever` folder into `World of Warcraft\_forever_\Interface\A
 
 ## How to use
 
-It shows up by itself when a roll starts. Type `/rolls test` to play an example. Type `/rolls move` to place it: drag the preview, right-click it for the size, then click Done.
+It shows up by itself when a roll starts. Type `/rolls test` to play an example, `/rolls test raid` for a raid one. Type `/rolls move` to place it: drag the preview, right-click it for the size, then click Done.
 
 ## Licence
 

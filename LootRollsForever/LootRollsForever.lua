@@ -7,7 +7,7 @@ local NAMES_LIMIT = 5
 local GAP = 12
 local HEIGHT_CHOOSING, HEIGHT_RESULT = 34, 48
 local GOLD = { 1, 0.84, 0.42 }
-local FALL_ROWS, FALL_STEP = 6, 13
+local FALL_ROWS, FALL_STEP = 10, 13
 local RANK = { need = 1, greed = 2, disenchant = 3 }
 
 local ICONS = {
@@ -25,12 +25,36 @@ local root, hint, lock, slider
 local setMoving
 local moving = false
 
-local dismiss
+local dismiss, release, colored
 
 local function hover(f)
   f.hit:EnableMouse(not moving)
   if not moving and f.hit.SetMouseClickEnabled then f.hit:SetMouseClickEnabled(false) end
   f.dismiss:EnableMouse(not moving)
+  f.list:EnableMouse(not moving)
+  if not moving and f.list.SetMouseClickEnabled then f.list:SetMouseClickEnabled(false) end
+  local picking = not moving and f.pick.entry ~= nil and not f.pick.entry.done
+  f.pick:EnableMouse(picking)
+  if picking and f.pick.SetMouseClickEnabled then f.pick:SetMouseClickEnabled(false) end
+end
+
+local function showChoices(self)
+  local entry = self.entry
+  if not entry or entry.gone or entry.done then return end
+  GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+  GameTooltip:SetText(entry.key)
+  local function group(title, icon, wanted)
+    local names = {}
+    for _, name in ipairs(entry.players) do
+      if entry.state[name].choice == wanted then names[#names + 1] = colored(entry, name) end
+    end
+    if #names == 0 then return end
+    GameTooltip:AddLine((icon and ("|T" .. icon .. ":14|t ") or "") .. title .. " (" .. #names .. ")", GOLD[1], GOLD[2], GOLD[3])
+    GameTooltip:AddLine(table.concat(names, ", "), 1, 1, 1, true)
+  end
+  for _, kind in ipairs({ "need", "greed", "disenchant", "pass" }) do group(WORDS[kind], ICONS[kind], kind) end
+  group("Waiting", nil, nil)
+  GameTooltip:Show()
 end
 
 local function showTip(self)
@@ -279,6 +303,10 @@ local function acquire()
     f.dismiss:SetScript("OnClick", function(self) dismiss(self.entry) end)
     f.choosing = CreateFrame("Frame", nil, f)
     f.choosing:SetSize(280, 14)
+    f.pick = CreateFrame("Frame", nil, f.choosing)
+    f.pick:SetAllPoints(f.choosing)
+    f.pick:SetScript("OnEnter", showChoices)
+    f.pick:SetScript("OnLeave", hideTip)
     f.counts = text(f.choosing, 11)
     f.counts:SetPoint("LEFT", 0, 0)
     f.slots = {}
@@ -296,6 +324,34 @@ local function acquire()
     f.rest:SetPoint("TOPLEFT", 0, -19)
     f.rest:SetTextColor(0.8, 0.8, 0.8)
     f.fall = {}
+    f.list = CreateFrame("Frame", nil, f.result)
+    f.list:SetPoint("TOPLEFT", 0, -18)
+    f.list:SetScript("OnEnter", function(self)
+      local entry = self.entry
+      if not entry or entry.gone then return end
+      cancel(entry.id .. "out")
+      entry.frame:SetAlpha(1)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(entry.key)
+      local function line(name, r, g, b)
+        local state = entry.state[name]
+        GameTooltip:AddDoubleLine(("|T%s:14|t %s"):format(ICONS[state.choice or "greed"], colored(entry, name)), state.roll or "", 1, 1, 1, r, g, b)
+      end
+      if entry.winner then line(entry.winner, GOLD[1], GOLD[2], GOLD[3]) end
+      for _, name in ipairs(entry.ranked) do line(name, 1, 1, 1) end
+      local passed = 0
+      for _, name in ipairs(entry.players) do
+        if entry.state[name].choice == "pass" then passed = passed + 1 end
+      end
+      if passed > 0 then GameTooltip:AddLine(passed .. " passed", 0.6, 0.6, 0.6) end
+      GameTooltip:Show()
+    end)
+    f.list:SetScript("OnLeave", function(self)
+      hideTip(self)
+      local entry = self.entry
+      if not entry or entry.gone then return end
+      fade(entry.id .. "out", entry.frame, 0, 0.6, 2, function() release(entry) end)
+    end)
   end
   f:SetAlpha(0)
   f.choosing:SetAlpha(1)
@@ -309,6 +365,8 @@ local function acquire()
   f.check:Hide()
   f.icon:SetVertexColor(1, 1, 1)
   for _, row in ipairs(f.fall) do row:Hide() end
+  f.list:Hide()
+  f.list.entry = nil
   f.roll:SetText("")
   f.counts:SetText("")
   for _, slot in ipairs(f.slots) do
@@ -347,7 +405,7 @@ local function restack()
   end
 end
 
-local function release(entry)
+function release(entry)
   for i, other in ipairs(entries) do
     if other == entry then
       table.remove(entries, i)
@@ -358,6 +416,9 @@ local function release(entry)
   entry.gone = true
   hideTip(entry.frame.hit)
   hideTip(entry.frame.dismiss)
+  hideTip(entry.frame.list)
+  hideTip(entry.frame.pick)
+  entry.frame.pick.entry = nil
   entry.frame:Hide()
   pool[#pool + 1] = entry.frame
   restack()
@@ -382,7 +443,7 @@ function setMoving(on)
   end
 end
 
-local function colored(entry, name)
+function colored(entry, name)
   local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[entry.class[name] or ""]
   if not color then return name end
   return ("|cff%02x%02x%02x%s|r"):format(color.r * 255, color.g * 255, color.b * 255, name)
@@ -472,6 +533,7 @@ local function start(name, link, quality, texture, seconds, players, class)
   f.name:SetTextColor(color.r, color.g, color.b)
   f.hit.link, f.hit.title = link, name
   f.dismiss.link, f.dismiss.title, f.dismiss.entry = link, name, entry
+  f.pick.entry = entry
   f.hit:SetWidth(8 + f.name:GetStringWidth())
   hover(f)
   entries[#entries + 1] = entry
@@ -504,13 +566,18 @@ local function choose(entry, name, choice, class)
   local state = player(entry, name, class)
   if state.choice == choice then return end
   state.choice = choice
-  if not entry.done then drawChoosing(entry, name) end
+  if not entry.done then
+    drawChoosing(entry, name)
+    if GameTooltip:GetOwner() == entry.frame.pick then showChoices(entry.frame.pick) end
+  end
 end
 
 local function finish(entry, winner, roll, choice)
   if entry.done or entry.gone then return end
   entry.done = true
   local f = entry.frame
+  hideTip(f.pick)
+  f.pick:EnableMouse(false)
   cancel(entry.id .. "expire")
   local state = winner and player(entry, winner) or {}
   roll = roll or state.roll
@@ -542,25 +609,29 @@ local function finish(entry, winner, roll, choice)
         row = text(f.result, 11)
         f.fall[rows] = row
       end
-      local y = -20 - (rows - 1) * FALL_STEP
+      local x, y = 0, -20 - (rows - 1) * FALL_STEP
       row:SetText(label)
       row:SetAlpha(0)
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", f.result, "TOPLEFT", 0, y + 16)
+      row:SetPoint("TOPLEFT", f.result, "TOPLEFT", x, y + 16)
       row:Show()
-      tween(entry.id .. "fall" .. rows, 0, 1, 0.5, 0.6 + rows * 0.12, function(value)
+      tween(entry.id .. "fall" .. rows, 0, 1, 0.5, 0.6 + rows * 0.07, function(value)
         row:SetAlpha(value)
-        row:SetPoint("TOPLEFT", f.result, "TOPLEFT", 0, y + 16 * (1 - value))
+        row:SetPoint("TOPLEFT", f.result, "TOPLEFT", x, y + 16 * (1 - value))
       end)
     end
-    local shown = math.min(#others, FALL_ROWS)
-    for i = 1, shown do
+    for i = 1, math.min(#others, FALL_ROWS) do
       local other = entry.state[others[i]]
       fall(("|T%s:12|t %s  |cffffffff%d|r"):format(ICONS[other.choice or "greed"], colored(entry, others[i]), other.roll))
     end
-    if #others > shown then fall(("|cff999999+%d more|r"):format(#others - shown)) end
+    if #others > FALL_ROWS then fall(("|cff999999+%d more, hover to see all|r"):format(#others - FALL_ROWS)) end
     f.rest:SetText("")
     entry.height = 46 + rows * FALL_STEP
+    entry.winner, entry.ranked = winner, others
+    f.list.entry = entry
+    f.list:SetSize(220, rows * FALL_STEP + 4)
+    f.list:Show()
+    hover(f)
   else
     local parts = {}
     for i = 1, math.min(#others, 4) do
@@ -584,7 +655,7 @@ local function finish(entry, winner, roll, choice)
     end)
   end
   fade(entry.id .. "rest", f.rest, 1, 0.5, 1)
-  fade(entry.id .. "out", f, 0, 0.6, HOLD + 1.2 + rows * 0.12, function() release(entry) end)
+  fade(entry.id .. "out", f, 0, 0.6, HOLD + 1.2 + rows * 0.07, function() release(entry) end)
 end
 
 local ignored = {}
@@ -762,28 +833,21 @@ end
 
 local RAID_CLASSES = { "WARRIOR", "ROGUE", "MAGE", "PRIEST", "HUNTER", "WARLOCK", "DRUID", "SHAMAN", "PALADIN" }
 
-local RAID_ITEMS = {
-  { "Runed Core of the Sentinel", 4, "Interface\\Icons\\INV_Misc_Gem_Pearl_04" },
-  { "Golemheart Girdle", 3, "Interface\\Icons\\INV_Belt_03" },
-  { "Stonebinder's Mantle", 4, "Interface\\Icons\\INV_Shoulder_02" },
-  { "Sentinel's Greaves", 3, "Interface\\Icons\\INV_Boots_Plate_01" },
-}
-
-local function raidItem(index)
-  local item = RAID_ITEMS[(index - 1) % #RAID_ITEMS + 1]
+local function raidTest()
+  local size, index = 25, 1
   local players, class, picks = {}, {}, {}
-  for i = 1, 25 do
+  for i = 1, size do
     players[i] = "Raider" .. i
     class[players[i]] = RAID_CLASSES[(i - 1) % #RAID_CLASSES + 1]
     local kind = (i + index) % 4 == 0 and "need" or ((i + index) % 3 == 0 and "pass" or "greed")
     picks[i] = { kind, math.random(100) }
   end
-  local entry = start(item[1], nil, item[2], item[3], 60, players, class)
+  local entry = start("Runed Core of the Sentinel", nil, 4, "Interface\\Icons\\INV_Misc_Gem_Pearl_04", 60, players, class)
   entry.preview = true
   for i, pick in ipairs(picks) do
-    C_Timer.After(0.5 + i * 0.14, function() choose(entry, players[i], pick[1]) end)
+    C_Timer.After(0.5 + i * 3.5 / size, function() choose(entry, players[i], pick[1]) end)
   end
-  C_Timer.After(0.5 + #picks * 0.14 + 0.8, function()
+  C_Timer.After(0.5 + 3.5 + 0.8, function()
     if entry.gone then return end
     local winner, best = nil, 0
     for i, pick in ipairs(picks) do
@@ -792,12 +856,6 @@ local function raidItem(index)
     end
     finish(entry, winner)
   end)
-end
-
-local function raidTest(count)
-  for index = 1, count do
-    C_Timer.After((index - 1) * 0.5, function() raidItem(index) end)
-  end
 end
 
 local events = CreateFrame("Frame")
@@ -828,12 +886,10 @@ SLASH_LOOTROLLSFOREVER3 = "/lrf"
 SlashCmdList.LOOTROLLSFOREVER = function(message)
   local command, value = strtrim(message or ""):lower():match("^(%S*)%s*(.*)$")
   ensureRoot()
-  if command == "test" and (value:find("raid") or tonumber(value:match("%d+"))) then
-    raidTest(math.max(1, math.min(4, tonumber(value:match("%d+")) or 1)))
+  if command == "test" and value == "raid" then
+    raidTest()
   elseif command == "test" then
     test()
-  elseif command == "raid" then
-    raidTest(1)
   elseif command == "move" then
     setMoving(not moving)
   elseif command == "scale" and tonumber(value) then
@@ -845,7 +901,7 @@ SlashCmdList.LOOTROLLSFOREVER = function(message)
     root:SetScale(db.scale)
   else
     print("|cffffd100Loot Rolls|r /rolls test: play an example")
-    print("|cffffd100Loot Rolls|r /rolls test raid: a 25 player example, /rolls test 3: three raid items at once")
+    print("|cffffd100Loot Rolls|r /rolls test raid: play a 25 player example")
     print("|cffffd100Loot Rolls|r /rolls move: preview it, drag it, right-click for size; again to lock")
     print("|cffffd100Loot Rolls|r /rolls scale 1.2: size (now " .. db.scale .. ")")
     print("|cffffd100Loot Rolls|r /rolls reset: back to the default place and size")
